@@ -2,6 +2,7 @@ import os
 import os.path as osp
 import json
 import torch
+import torch.nn as nn
 import pickle
 import logging
 import numpy as np
@@ -87,7 +88,8 @@ class Exp:
         return self.optimizer
 
     def _select_criterion(self):
-        self.criterion = torch.nn.MSELoss()
+        #self.criterion = torch.nn.MSELoss()
+        self.criterion = nn.CrossEntropyLoss()
 
     def _save(self, name=''):
         torch.save(self.model.state_dict(), os.path.join(
