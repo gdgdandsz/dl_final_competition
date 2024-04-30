@@ -72,9 +72,12 @@ def load_moving_object(batch_size, val_batch_size, data_root, num_workers):
     total_length = len(whole_data)
     train_size = int(0.9 * total_length)
     val_size = int(0.09 * total_length)
-    test_size = total_length - train_size - val_size  # Adjust test_size to make sure it fits exactly
+    # Ensure the sum of train_size, val_size, and test_size does not exceed total_length
+    test_size = total_length - train_size - val_size  # This ensures the total sum is exactly total_length
 
-    print(f"Split sizes - Train: {train_size}, Validation: {val_size}, Test: {test_size}")
+    if test_size < 0:  # If the sum of train and validation sizes is already greater than total length
+        test_size = 0  # Set test size to zero
+        # Optionally adjust train or validation size here if needed
 
     train_data, val_data, test_data = random_split(whole_data, [train_size, val_size, test_size],
                                                    generator=torch.Generator().manual_seed(2021))
