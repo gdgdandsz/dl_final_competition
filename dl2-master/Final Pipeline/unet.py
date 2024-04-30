@@ -10,21 +10,37 @@ from tqdm import tqdm
 
 class SegmentationDataSet(Dataset):
 
-    def __init__(self, args,transform=None):
-
-        self.stored_images_path=args.res_dir+'/Debug/results/Debug/sv/last_frames.npy'
-
-        print("last frames stored path::",self.stored_images_path)
-
-        self.last_frames = np.load(self.stored_images_path) #(2000,1,3,160,240)
-        
-        print("last frames shape:", self.last_frames.shape)
+    def __init__(self, video_dir, transform=None):
+        self.transform = transform
+        self.images, self.masks = [], []
+        for i in video_dir:
+            imgs = os.listdir(i)
+            self.images.extend([i + '/' + img for img in imgs if not img.startswith(
+                'mask')])  # /content/gdrive/MyDrive/Dataset_Studentnew/Dataset_Student/train/video_
+        # print(self.images[1000])
 
     def __len__(self):
-        return len(self.last_frames)
+        return len(self.images)
 
     def __getitem__(self, index):
-        return self.last_frames[index]  # we want to return (3,160,240) this dimension
+        img = np.array(Image.open(self.images[index]))
+        x = self.images[index].split('/')
+        image_name = x[-1]
+        #mask_index = int(image_name.split("_")[1].split(".")[0])
+        x = x[:-1]
+        #mask_path = '/'.join(x)
+        #mask = np.load(mask_path + '/mask.npy')
+        #try:
+            #mask = mask[mask_index, :, :]
+        #except IndexError:  # Index is out of the bounds of the array
+            #mask = mask[-1, :, :]  # Use the last mask if the index is out of range
+        if self.transform:
+            img = self.transform(img)  # 应用transform
+
+        #mask = torch.tensor(mask, dtype=torch.long)  # 确保掩码也转换为tensor
+
+
+        return img
 
 class encoding_block(nn.Module):
     def __init__(self, in_channels, out_channels):
