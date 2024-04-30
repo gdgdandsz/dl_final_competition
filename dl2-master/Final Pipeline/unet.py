@@ -30,11 +30,12 @@ class SegmentationDataSet(Dataset):
 
     def __getitem__(self, index):
         img_path = self.images[index]
-        img = Image.open(img_path).convert('RGB')  # 确保图像为RGB格式
+        img = Image.open(img_path).convert('RGB')  # Ensure image is in RGB
         if self.transform:
-            img = self.transform(img)  # 应用转换
-        img = np.array(img)  # 转换图像为numpy数组
-        img = torch.from_numpy(img.transpose((2, 0, 1)))  # 转换为CHW格式，适应PyTorch
+            img = self.transform(img)  # Apply transformations
+        img = np.array(img)  # Convert image to numpy array
+        img = torch.from_numpy(img.transpose((2, 0, 1)))  # Convert to CHW format
+        img = img.float()  # Convert to float
         return img
 
 class encoding_block(nn.Module):
