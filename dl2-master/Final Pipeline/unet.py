@@ -14,7 +14,7 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset
 
-class ImageDataSet(Dataset):
+class SegmentationDataSet(Dataset):
     def __init__(self, root_dir, transform=None):
         """
         初始化数据集。
