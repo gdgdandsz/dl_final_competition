@@ -15,21 +15,15 @@ import torch
 from torch.utils.data import Dataset
 
 class SegmentationDataSet(Dataset):
-    def __init__(self, video_dir, transform=None):
-        """
-        初始化数据集。
-        参数:
-            video_dir (list): 包含视频文件夹路径的列表。
-            transform (callable, optional): 一个可选的转换函数或复合转换，将应用于加载的图像。
-        """
+    def __init__(self, root_dir, transform=None):
         self.transform = transform
         self.images = []
-        # 遍历每个视频文件夹路径
-        for dir_path in video_dir:
-            # 列出文件夹中的所有文件
-            imgs = os.listdir(dir_path)
-            # 只添加图像文件，并排除以 'mask' 开头的文件
-            self.images.extend([os.path.join(dir_path, img) for img in imgs if not img.startswith('mask') and img.endswith(('.png', '.jpg', '.jpeg'))])
+        # 遍历根目录下的所有子目录
+        for dir_name in os.listdir(root_dir):
+            dir_path = os.path.join(root_dir, dir_name)
+            if os.path.isdir(dir_path):
+                imgs = os.listdir(dir_path)
+                self.images.extend([os.path.join(dir_path, img) for img in imgs if img.endswith(('.png', '.jpg', '.jpeg'))])
 
     def __len__(self):
         return len(self.images)
@@ -38,7 +32,7 @@ class SegmentationDataSet(Dataset):
         img_path = self.images[index]
         img = Image.open(img_path).convert('RGB')  # 确保图像为RGB格式
         if self.transform:
-            img = self.transform(img)  # 如果提供了变换，应用变换
+            img = self.transform(img)  # 应用转换
         img = np.array(img)  # 转换图像为numpy数组
         img = torch.from_numpy(img.transpose((2, 0, 1)))  # 转换为CHW格式，适应PyTorch
         return img
@@ -114,7 +108,8 @@ def UNET_Module(args):
     model2_path = args.model2_path
 
 
-    val_dataset = SegmentationDataSet(args, None)
+    root_video_dir = args.data_root  # 或其他包含根目录路径的属性
+    val_dataset = SegmentationDataSet(root_video_dir, None)
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
     DEVICE = torch.device('cuda:{}'.format(0))
