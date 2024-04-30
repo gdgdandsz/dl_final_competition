@@ -8,38 +8,40 @@ import torch.nn as nn
 from torch.optim import Adam
 from tqdm import tqdm
 
-class SegmentationDataSet(Dataset):
+import os
+import numpy as np
+from PIL import Image
+import torch
+from torch.utils.data import Dataset
 
-    def __init__(self, video_dir, transform=None):
+class ImageDataSet(Dataset):
+    def __init__(self, root_dir, transform=None):
+        """
+        初始化数据集。
+        参数:
+            root_dir (str): 包含所有视频文件夹的根目录。
+            transform (callable, optional): 一个可选的转换函数或复合转换，将应用于加载的图像。
+        """
         self.transform = transform
-        self.images, self.masks = [], []
-        for i in video_dir:
-            imgs = os.listdir(i)
-            self.images.extend([i + '/' + img for img in imgs if not img.startswith(
-                'mask')])  # /content/gdrive/MyDrive/Dataset_Studentnew/Dataset_Student/train/video_
-        # print(self.images[1000])
+        self.images = []
+        # 遍历根目录下的所有文件夹
+        for dir_name in os.listdir(root_dir):
+            dir_path = os.path.join(root_dir, dir_name)
+            # 确保它是一个目录
+            if os.path.isdir(dir_path):
+                imgs = os.listdir(dir_path)
+                self.images.extend([os.path.join(dir_path, img) for img in imgs if img.endswith(('.png', '.jpg', '.jpeg'))])
 
     def __len__(self):
         return len(self.images)
 
     def __getitem__(self, index):
-        img = np.array(Image.open(self.images[index]))
-        x = self.images[index].split('/')
-        image_name = x[-1]
-        #mask_index = int(image_name.split("_")[1].split(".")[0])
-        x = x[:-1]
-        #mask_path = '/'.join(x)
-        #mask = np.load(mask_path + '/mask.npy')
-        #try:
-            #mask = mask[mask_index, :, :]
-        #except IndexError:  # Index is out of the bounds of the array
-            #mask = mask[-1, :, :]  # Use the last mask if the index is out of range
+        img_path = self.images[index]
+        img = Image.open(img_path).convert('RGB')  # 确保图像为RGB格式
         if self.transform:
             img = self.transform(img)  # 应用transform
-
-        #mask = torch.tensor(mask, dtype=torch.long)  # 确保掩码也转换为tensor
-
-
+        img = np.array(img)  # 转换图像为numpy数组
+        img = torch.from_numpy(img.transpose((2, 0, 1)))  # 转换为CHW格式，适应PyTorch
         return img
 
 class encoding_block(nn.Module):
