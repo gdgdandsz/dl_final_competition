@@ -12,7 +12,7 @@ def create_parser():
     parser.add_argument('--res_dir', default='./results', type=str)
     parser.add_argument('--ex_name', default='Debug', type=str)
     parser.add_argument('--use_gpu', default=True, type=bool)
-    parser.add_argument('--gpu', default=0, type=int)
+    parser.add_argument('--gpus', default='0, 1', type=str, help='GPU ids to use, e.g. "0,1,2" for using multiple GPUs')
     parser.add_argument('--seed', default=1, type=int)
 
     parser.add_argument('--model1_path', default='/scratch/yz8297/DL_comp/dl2-master/checkpoints/checkpoint.pth', type=str)
