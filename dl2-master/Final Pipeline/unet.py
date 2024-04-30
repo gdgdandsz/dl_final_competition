@@ -15,22 +15,21 @@ import torch
 from torch.utils.data import Dataset
 
 class SegmentationDataSet(Dataset):
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, video_dir, transform=None):
         """
         初始化数据集。
         参数:
-            root_dir (str): 包含所有视频文件夹的根目录。
+            video_dir (list): 包含视频文件夹路径的列表。
             transform (callable, optional): 一个可选的转换函数或复合转换，将应用于加载的图像。
         """
         self.transform = transform
         self.images = []
-        # 遍历根目录下的所有文件夹
-        for dir_name in os.listdir(root_dir):
-            dir_path = os.path.join(root_dir, dir_name)
-            # 确保它是一个目录
-            if os.path.isdir(dir_path):
-                imgs = os.listdir(dir_path)
-                self.images.extend([os.path.join(dir_path, img) for img in imgs if img.endswith(('.png', '.jpg', '.jpeg'))])
+        # 遍历每个视频文件夹路径
+        for dir_path in video_dir:
+            # 列出文件夹中的所有文件
+            imgs = os.listdir(dir_path)
+            # 只添加图像文件，并排除以 'mask' 开头的文件
+            self.images.extend([os.path.join(dir_path, img) for img in imgs if not img.startswith('mask') and img.endswith(('.png', '.jpg', '.jpeg'))])
 
     def __len__(self):
         return len(self.images)
@@ -39,7 +38,7 @@ class SegmentationDataSet(Dataset):
         img_path = self.images[index]
         img = Image.open(img_path).convert('RGB')  # 确保图像为RGB格式
         if self.transform:
-            img = self.transform(img)  # 应用transform
+            img = self.transform(img)  # 如果提供了变换，应用变换
         img = np.array(img)  # 转换图像为numpy数组
         img = torch.from_numpy(img.transpose((2, 0, 1)))  # 转换为CHW格式，适应PyTorch
         return img
