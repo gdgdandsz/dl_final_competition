@@ -66,19 +66,22 @@ class MovingObjectDataSet(data.Dataset):
     def __len__(self):
         return self.length
 
-def load_moving_object(batch_size, val_batch_size,data_root, num_workers):
-
+def load_moving_object(batch_size, val_batch_size, data_root, num_workers):
     whole_data = MovingObjectDataSet(root=data_root, is_train=True, n_frames_input=11, n_frames_output=11)
 
-    train_size = int(0.9 * len(whole_data))
-    val_size = int(0.09 * len(whole_data))
-    test_size = int(0.01 * len(whole_data))
-    print(train_size, val_size, test_size)
-    train_data, val_data, test_data = random_split(whole_data, [train_size, val_size, test_size], generator=torch.Generator().manual_seed(2021))
+    total_length = len(whole_data)
+    train_size = int(0.9 * total_length)
+    val_size = int(0.09 * total_length)
+    test_size = total_length - train_size - val_size  # Adjust test_size to make sure it fits exactly
+
+    print(f"Split sizes - Train: {train_size}, Validation: {val_size}, Test: {test_size}")
+
+    train_data, val_data, test_data = random_split(whole_data, [train_size, val_size, test_size],
+                                                   generator=torch.Generator().manual_seed(2021))
 
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
-    val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
+    val_loader = DataLoader(val_data, batch_size=val_batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
     test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
 
-    mean, std = 0, 1
+    mean, std = 0, 1  # Define your actual mean and std if necessary
     return train_loader, val_loader, test_loader, mean, std
