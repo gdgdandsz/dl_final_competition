@@ -118,43 +118,37 @@ def save_images(numpy_array, output_dir, num_images_per_folder=22):
 def UNET_Module(args):
     model2_path = args.model2_path
     root_video_dir = args.data_root
+    val_dataset = SegmentationDataSet(root_video_dir, None)
+    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, pin_memory=True)
 
-    # Setting up the device
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # Data loader setup
-    val_dataset = SegmentationDataSet(root_video_dir, None)
-    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, pin_memory=True)
+    # 直接加载整个模型
+    model = torch.load(model2_path, map_location=device)
 
-    # Model setup
-    model = unet_model().to(device)  # Ensure model is sent to the right device
     if torch.cuda.device_count() > 1:
         print(f"Let's use {torch.cuda.device_count()} GPUs!")
         model = nn.DataParallel(model)
 
-    # Load pre-trained weights
-    loaded_unet_model = torch.load(model2_path, map_location=device)  # Ensure model is loaded on the right device
-    model.load_state_dict(loaded_unet_model)
-
+    model = model.to(device)
     model.eval()
     masks_pred_list = []
 
     with torch.no_grad():
         for x in tqdm(val_dataloader):
-            x = x.to(device)  # Send input data to the right device
-            preds = model(x)
-            preds = torch.argmax(nn.Softmax(dim=1)(preds), axis=1)
+            x = x.to(device)
+            softmax = nn.Softmax(dim=1)
+            preds = torch.argmax(softmax(model(x)), axis=1)
             masks_pred_list.append(preds)
 
     torch_y_pred_masks = torch.cat(masks_pred_list, dim=0)
     numpy_y_pred_masks = torch_y_pred_masks.cpu().numpy()
 
-    print("After segmentation shape", numpy_y_pred_masks.shape)
+    print("After segmentation shape:", numpy_y_pred_masks.shape)
 
     np.save(os.path.join(args.res_dir, 'unlabeled.npy'), numpy_y_pred_masks)
     save_images(numpy_y_pred_masks, os.path.join(args.res_dir, 'unlabeled'))
-
     print("Segmentation done successfully")
 
 
