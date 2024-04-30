@@ -130,6 +130,6 @@ def UNET_Module(args):
 
     print("After segmentation shape", numpy_y_pred_masks.shape)
 
-    np.save(args.res_dir+'/numpy_y_pred_masks.npy',numpy_y_pred_masks)
+    np.save(args.res_dir+'/unlabled.npy',numpy_y_pred_masks)
     print("segmentation done successfully")
 
