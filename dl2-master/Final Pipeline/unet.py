@@ -138,7 +138,7 @@ def UNET_Module(args):
 
     with torch.no_grad():
         for x in tqdm(val_dataloader):
-            x = x.to(device)
+            x = x.to(device).float()  # Ensure x is float before passing to model
             softmax = nn.Softmax(dim=1)
             preds = torch.argmax(softmax(model(x)), axis=1)
             masks_pred_list.append(preds)
