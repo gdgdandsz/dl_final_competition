@@ -102,7 +102,18 @@ class unet_model(nn.Module):
         x = self.conv8(x)
         x = self.final_layer(x)
         return x
+from PIL import Image
 
+def save_images(numpy_array, output_dir, num_images_per_folder=22):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for idx in range(0, len(numpy_array), num_images_per_folder):
+        folder_name = os.path.join(output_dir, f"video_{idx // num_images_per_folder:05d}")
+        os.makedirs(folder_name, exist_ok=True)
+        for j, image_array in enumerate(numpy_array[idx:idx + num_images_per_folder]):
+            img = Image.fromarray((image_array * 255).astype(np.uint8))  # Assuming the output is normalized
+            img.save(os.path.join(folder_name, f"frame_{j:05d}.png"))
 
 def UNET_Module(args):
     model2_path = args.model2_path
@@ -110,12 +121,15 @@ def UNET_Module(args):
 
     root_video_dir = args.data_root  # 或其他包含根目录路径的属性
     val_dataset = SegmentationDataSet(root_video_dir, None)
-    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, pin_memory=True)
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
     DEVICE = torch.device('cuda:{}'.format(0))
 
-    model = unet_model().to(DEVICE)
-
+    model = unet_model()
+    if torch.cuda.device_count() > 1:
+        print(f"Let's use {torch.cuda.device_count()} GPUs!")
+        model = nn.DataParallel(model)
+    model.to(device)
     loaded_unet_model = torch.load(model2_path).state_dict()
     model.load_state_dict(loaded_unet_model)
 
@@ -143,5 +157,6 @@ def UNET_Module(args):
     print("After segmentation shape", numpy_y_pred_masks.shape)
 
     np.save(args.res_dir+'/unlabled.npy',numpy_y_pred_masks)
+    save_images(numpy_y_pred_masks, args.res_dir + '/unlabeled')
     print("segmentation done successfully")
 
