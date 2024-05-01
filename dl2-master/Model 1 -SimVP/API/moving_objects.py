@@ -69,22 +69,25 @@ class MovingObjectDataSet(data.Dataset):
 def load_moving_object(batch_size, val_batch_size, data_root, num_workers):
     whole_data = MovingObjectDataSet(root=data_root, is_train=True, n_frames_input=11, n_frames_output=11)
 
+    # 直接获取数据集总长度
     total_length = len(whole_data)
-    train_size = int(0.9 * total_length)
-    val_size = int(0.09 * total_length)
-    # Ensure the sum of train_size, val_size, and test_size does not exceed total_length
-    test_size = total_length - train_size - val_size  # This ensures the total sum is exactly total_length
-
-    if test_size < 0:  # If the sum of train and validation sizes is already greater than total length
-        test_size = 0  # Set test size to zero
-        # Optionally adjust train or validation size here if needed
-
+    
+    # 手动设置验证集和测试集的大小
+    val_size = int(0.05 * total_length)
+    test_size = int(0.05 * total_length)  # 确保总和不超过数据集大小
+    
+    # 训练集大小自动调整
+    train_size = total_length - val_size - test_size
+    
+    # 使用 random_split 进行分割
     train_data, val_data, test_data = random_split(whole_data, [train_size, val_size, test_size],
                                                    generator=torch.Generator().manual_seed(2021))
 
+    # 创建 DataLoader
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
     val_loader = DataLoader(val_data, batch_size=val_batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
-    test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
+    test_loader = DataLoader(test_data, batch_size=val_batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
 
-    mean, std = 0, 1  # Define your actual mean and std if necessary
+    mean, std = 0, 1  # 定义你的实际均值和标准差
     return train_loader, val_loader, test_loader, mean, std
+
