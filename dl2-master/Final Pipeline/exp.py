@@ -9,7 +9,6 @@ from model import SimVP
 from tqdm import tqdm
 from API import *
 from utils import *
-import torchvision.models as models
 
 class Exp:
     def __init__(self, args):
@@ -60,7 +59,7 @@ class Exp:
         self._get_data()
         # build the model
         self._build_model()
-    
+
     def _build_model(self):
         args = self.args
         self.model = SimVP(tuple(args.in_shape), args.hid_S,
@@ -69,13 +68,6 @@ class Exp:
     def _get_data(self):
         config = self.args.__dict__
         self.vali_loader,self.data_mean, self.data_std = load_data(**config)
-        
-    def calculate_iou(pred_mask, true_mask):
-        intersection = np.logical_and(pred_mask, true_mask)
-        union = np.logical_or(pred_mask, true_mask)
-        iou = np.sum(intersection) / np.sum(union)
-        return iou
-
 
     def _select_optimizer(self):
         self.optimizer = torch.optim.Adam(
@@ -94,34 +86,34 @@ class Exp:
         fw = open(os.path.join(self.checkpoints_path, name + '.pkl'), 'wb')
         pickle.dump(state, fw)
 
-    def prediction_eval(self,args):
-        # 检查模型路径是否带有module.前缀
-        state_dict = torch.load(self.model1_path, map_location=self.device)
+    def evaluate_iou(self,args):
+        """Evaluate the IoU using Jaccard Index on validation data."""
+        self.model.eval()
+        jaccard_metric = JaccardIndex(num_classes=49, task='multiclass').to(self.device)
+        
+        with torch.no_grad():
+            for batch_x, batch_y in tqdm(self.vali_loader):
+                batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
+                preds = self.model(batch_x)
+                preds_classes = torch.argmax(preds, dim=1)
+                jaccard_metric.update(preds_classes, batch_y)
 
-        # 如果state_dict中的键名带有'module.'前缀，则去掉
-        state_dict = {k.replace('module.', ''): v for k, v in state_dict.items() if 'module.' in k}
-            
-        self.model.load_state_dict(state_dict)
+        final_iou = jaccard_metric.compute()
+        #print(f"Final IoU Score: {final_iou}")
+        print_log(f"Evaluated IoU on validation set: {final_iou}")
+    
+    def prediction_eval(self,args):
+
+        self.model.load_state_dict(torch.load(self.model1_path))
         self.model.eval()
         inputs_lst, preds_lst ,last_frame_list= [], [],[]
         vali_pbar = tqdm(self.vali_loader)
-        
-        #iou_scores = []
+
         for i,batch_x in enumerate(vali_pbar):
             pred_y = self.model(batch_x.to(self.device))
             last_frame_y=pred_y[:,10,:,:,:]
             list(map(lambda data, lst: lst.append(data.detach().cpu().numpy()), [
                 batch_x,pred_y,last_frame_y], [inputs_lst, preds_lst,last_frame_list]))
-            '''
-            # 计算IoU值
-            pred_mask = pred_y.detach().cpu().numpy()
-            true_mask = ???
-            iou = calculate_iou(pred_mask, true_mask)
-            iou_scores.append(iou)'''
-    
-        # 计算平均IoU值
-        #mean_iou = np.mean(iou_scores)
-        #print("Mean IoU:", mean_iou)
     
         print("pred_y.shape:",pred_y.shape)
         print("last_frame list len:",len(last_frame_list))
@@ -154,5 +146,7 @@ class Exp:
         
         print("last_frames saved successfully")
         print_log("Testing done successfully!")
+
+
 
 
