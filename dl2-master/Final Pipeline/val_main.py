@@ -48,6 +48,6 @@ if __name__ == '__main__':
     exp = Exp(args)
     print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>  start <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
     print("Inside Start")
-    #exp.prediction_eval(args)
+    exp.prediction_eval(args)
 
     UNET_Module(args)
