@@ -8,35 +8,23 @@ import torch.nn as nn
 from torch.optim import Adam
 from tqdm import tqdm
 
-import os
-import numpy as np
-from PIL import Image
-import torch
-from torch.utils.data import Dataset
-
 class SegmentationDataSet(Dataset):
-    def __init__(self, root_dir, transform=None):
-        self.transform = transform
-        self.images = []
-        # 遍历根目录下的所有子目录
-        for dir_name in os.listdir(root_dir):
-            dir_path = os.path.join(root_dir, dir_name)
-            if os.path.isdir(dir_path):
-                imgs = os.listdir(dir_path)
-                self.images.extend([os.path.join(dir_path, img) for img in imgs if img.endswith(('.png', '.jpg', '.jpeg'))])
+
+    def __init__(self, args,transform=None):
+
+        self.stored_images_path=args.res_dir+'/Debug/results/Debug/sv/last_frames.npy'
+
+        print("last frames stored path::",self.stored_images_path)
+
+        self.last_frames = np.load(self.stored_images_path) #(2000,1,3,160,240)
+        
+        print("last frames shape:", self.last_frames.shape)
 
     def __len__(self):
-        return len(self.images)
+        return len(self.last_frames)
 
     def __getitem__(self, index):
-        img_path = self.images[index]
-        img = Image.open(img_path).convert('RGB')  # Ensure image is in RGB
-        if self.transform:
-            img = self.transform(img)  # Apply transformations
-        img = np.array(img)  # Convert image to numpy array
-        img = torch.from_numpy(img.transpose((2, 0, 1)))  # Convert to CHW format
-        img = img.float()  # Convert to float
-        return img
+        return self.last_frames[index]  # we want to return (3,160,240) this dimension
 
 class encoding_block(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -103,53 +91,47 @@ class unet_model(nn.Module):
         x = self.conv8(x)
         x = self.final_layer(x)
         return x
-from PIL import Image
 
-def save_images(numpy_array, output_dir, num_images_per_folder=22):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    for idx in range(0, len(numpy_array), num_images_per_folder):
-        folder_name = os.path.join(output_dir, f"video_{idx // num_images_per_folder:05d}")
-        os.makedirs(folder_name, exist_ok=True)
-        for j, image_array in enumerate(numpy_array[idx:idx + num_images_per_folder]):
-            img = Image.fromarray((image_array * 255).astype(np.uint8))  # Assuming the output is normalized
-            img.save(os.path.join(folder_name, f"frame_{j:05d}.png"))
 
 def UNET_Module(args):
     model2_path = args.model2_path
-    root_video_dir = args.data_root
-    val_dataset = SegmentationDataSet(root_video_dir, None)
-    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, pin_memory=True)
 
+
+    val_dataset = SegmentationDataSet(args, None)
+    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    DEVICE = torch.device('cuda:{}'.format(0))
 
-    # 直接加载整个模型
-    model = torch.load(model2_path, map_location=device)
+    model = unet_model().to(DEVICE)
 
-    if torch.cuda.device_count() > 1:
-        print(f"Let's use {torch.cuda.device_count()} GPUs!")
-        model = nn.DataParallel(model)
+    loaded_unet_model = torch.load(model2_path).state_dict()
+    model.load_state_dict(loaded_unet_model)
 
-    model = model.to(device)
     model.eval()
+
     masks_pred_list = []
 
     with torch.no_grad():
         for x in tqdm(val_dataloader):
-            x = x.to(device).float()  # Ensure x is float before passing to model
+            #print("x.shape:",x.shape)
+            #print("x.type:",x.type)
+
+            x = x.type(torch.cuda.FloatTensor).to(DEVICE)
+
             softmax = nn.Softmax(dim=1)
+
             preds = torch.argmax(softmax(model(x)), axis=1)
+
             masks_pred_list.append(preds)
 
-    torch_y_pred_masks = torch.cat(masks_pred_list, dim=0)
-    numpy_y_pred_masks = torch_y_pred_masks.cpu().numpy()
 
-    print("After segmentation shape:", numpy_y_pred_masks.shape)
+    torch_y_pred_masks=torch.cat(masks_pred_list,dim=0)
+    numpy_y_pred_masks=torch_y_pred_masks.to('cpu').numpy()
 
-    np.save(os.path.join(args.res_dir, 'unlabeled.npy'), numpy_y_pred_masks)
-    save_images(numpy_y_pred_masks, os.path.join(args.res_dir, 'unlabeled'))
-    print("Segmentation done successfully")
+    print("After segmentation shape", numpy_y_pred_masks.shape)
+
+    np.save(args.res_dir+'/numpy_y_pred_masks.npy',numpy_y_pred_masks)
+    print("segmentation done successfully")
+
 
 
